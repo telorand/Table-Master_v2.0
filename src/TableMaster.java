@@ -1,36 +1,31 @@
-import org.apache.commons.csv.*;
 import org.apache.commons.io.FilenameUtils;
 
 import java.io.File;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
+ * This is a program that allows the user to specify a CSV file that contains names and organizations,
+ * and the program will automatically add each person to a round table that seats 8.
+ * Created originally for the Carbondale Chamber of Commerce to assist with event seating.
  * Created by Matthew on 10/5/2015.
  */
 public class TableMaster implements TableMasterInterface<Person,TableMaster.Table> {
     private static final int DEFAULT_TABLE_SEATING = 8;
-    // The following is better, because I will need to access specific Tables without iterating through the whole list.
+    private static final int TABLE_BUFFER = 5;
+    private File csv = null;
     private ArrayList<Table> tables;
-    private File csvFile;
     private int numberOfTables;
     private List<Person> peopleList;
     private int numberOfSponsorTables;
-    private int nonSponsorIndex = numberOfSponsorTables; // Table indices start at 0, so this is correct.
+    private int nonSponsorStartingIndex = numberOfSponsorTables; // Table indices start at 0, so this is correct.
 
+    // We have to read the CSV file after TableMaster instantiation. Otherwise we will get an error.
     TableMaster(int numberOfSponsorTables) {
-        if (FilenameUtils.getExtension(csvFile.getPath()).equalsIgnoreCase("csv")) {
-            peopleList = readCSVFile(csvFile);
-            numberOfTables = (int) (peopleList.size() / 8 + .5); // Round up
-            setNumberOfSponsorTables(numberOfSponsorTables);
-            tables = new ArrayList<>(numberOfTables);
-            addTables(this.numberOfSponsorTables);
-            loadParty(peopleList);
-        }
-        else {
-            // Could also throw an exception, instead.
-            System.out.println("That is not a valid CSV file. Please try a different one.");
-        }
+        setNumberOfSponsorTables(numberOfSponsorTables);
+        tables = new ArrayList<>(numberOfSponsorTables);
+        addTables(this.numberOfSponsorTables);
     }
 
     protected class Table{
@@ -60,18 +55,22 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
         boolean isFull(){
             return chairs.size() == maxNumberOfChairs;
         }
+        protected boolean add(Person person){
+                return chairs.add(person);
+        }
+        protected boolean isEmpty() {
+            return chairs.isEmpty();
+        }
     }
 
-    public void initializeTableMaster(File csvFile, int numberOfSponsorTables) {
-
-    }
-
-    public void setCSVFile(File csvFile){
-        this.csvFile = csvFile;
-    }
-
-    private List<Person> readCSVFile(File csvFile){
-        return CSVFileReader.readCsvFile(csvFile);
+    public void readCSVFile(File csvFile){
+        if (FilenameUtils.getExtension(csvFile.getPath()).equalsIgnoreCase("csv")) {
+            csv = csvFile;
+            peopleList = CSVFileReader.readCsvFile(csvFile);
+            // Number of tables should be the same as number of sponsor tables initially.
+            numberOfTables = numberOfSponsorTables; // Round up
+            this.tables.ensureCapacity((int)(peopleList.size() / DEFAULT_TABLE_SEATING + .5 + TABLE_BUFFER)); // Ensure the list is able to hold the maximum number of tables.
+        }
     }
 
     /**
@@ -109,20 +108,10 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
     }
 
     public void autoFillAllChairs(){
-        loadParty(peopleList);
-    }
-    //
-    private boolean partyCheck(Table table, Person initPerson){
-        int count = 0;
-        for (Person person : table.chairs) {
-            if (table.getNumberOfFilledChairs() > 0) {
-                if (initPerson.getOrganization().equalsIgnoreCase(person.getOrganization()))
-                    count++;
-                else
-                    count = (count - 1 < 0)? 0 : --count;
-            }
-        }
-        return (count >= table.getNumberOfFilledChairs()/2);
+        if (csv != null)
+            loadParty(peopleList);
+        else
+            System.out.println("You need to first read in a valid CSV file!");
     }
 
     // Currently has no check for people with seating preferences.
@@ -130,53 +119,105 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
     // Searching tables to match a seating preference will incur at worst O(n) -- not ideal.
     // Is there a way to optimize the search for seating preference?
     // What if I reorder the peopleList to (try to) ensure seating preference is honored by moving records around?
-    // The loadParty() generates the tempList based upon a queue/stack/deque structure, so the above idea should still work for most cases.
-    private void loadParty(List<Person> listOfAttendees){
+    // The loadParty() generates the tempList based upon a queue/deque structure, so the above idea should still work for most cases.
+    private void loadParty(List<Person> listOfAttendees) {
+        // Keeps starting place when loading up a new tempList.
         int index = 1; // Starts at 1. Element 0 has header junk-info.
+        // A comparator index for comparing with the element at
         int checkIndex = 1; // This will be compared with the index.
-        int tableIndex = this.nonSponsorIndex; // Will automatically search through sponsored Tables, so this should be the starting point.
-        List<Person> tempList; // Could this be implemented as a Stack or Deque? Would that be more efficient?
+        int furthestNonFullIndex = this.nonSponsorStartingIndex; // Will automatically search through sponsored Tables, so this should be the starting point.
+        int nearestNonFullIndex = furthestNonFullIndex;
+        int tableSubsetIndex = nearestNonFullIndex;
+        ArrayDeque<Person> tempList = new ArrayDeque<>(24);
         Table currentTable;
 
-        while (index < listOfAttendees.size()){
+        while (index < listOfAttendees.size()) {
             // It's important to initialize the tempList each time the loop is run.
-            tempList = new ArrayList<>(24);
             // Load up the tempList with people from the same organization.
             // Compare the first element's organization field with each subsequent one (adds first element by default).
-            if (compareOrganizations(listOfAttendees.get(index), listOfAttendees.get(checkIndex))) {
+            if ((checkIndex != listOfAttendees.size()) && compareOrganizations(listOfAttendees.get(index), listOfAttendees.get(checkIndex))) {
                 // If they match, add the compared person object to the tempList.
                 tempList.add(listOfAttendees.get(checkIndex));
                 // Increment the compared person's index by one.
                 checkIndex++;
+                // This will check if the end of the list has been reached.
+                // Set the index so that the loop terminates.
             }
             // Once the list has all the people form the same organization, start placing them.
             // Then clear the list for a fresh start.
             else {
+                // If checkIndex == tempList.size(), this will cause the initial loop to terminate
+                // after reaching the end of this block.
                 index = checkIndex; // Start the next tempList load-up where you stopped.
                 // For the Person's in the tempList, see if their organization has a sponsor Table.
-                currentTable = getSponsorTable(tempList.get(0).getOrganization()); // Can be null.
-                // If currentTable is null, get the next available, non-sponsor table.
-                currentTable = (currentTable == null)? tables.get(tableIndex) : currentTable;
-                // Check if the organization name of the Person matches the sponsor name attached to the Table.
-                // Place the remaining people in non-sponsored Table's
-                //if (compareSponsors(currentTable, tempList.get(0))) {
-                for (Person person : tempList) {
-                    // Load up the current table until it's full (usually about 8 people).
-                    if (!currentTable.isFull()) {
-                        currentTable.chairs.add(person); // On the first run of the loop, this should be a sponsored Table if possible.
+                currentTable = getSponsorTable(tempList.getFirst().getOrganization()); // Can be null.
+                // If currentTable is null (not affiliated with a sponsor), get the next available, non-sponsor table.
+                if (currentTable == null) {
+                    // We need to add a table if the current index is pointing at a blank space.
+                    if (furthestNonFullIndex == tables.size()) {
+                        Table table = addTable();
+                        // This will produce the same result as the below if-statement, but it is much easier and quicker
+                        // to perform at this step.
+                        if (tempList.size() == 9)
+                            increaseTableSeatMax(table);
                     }
-                    // Otherwise, start at the nearest, open, regular table and place the rest of the people
-                    // (by looping back to the "if" statement and following the logic).
-                    else {
-                        while (currentTable.isFull()) { // Should only run once, but will be able to scale if I change the placement logic.
-                            tableIndex++;
-                            currentTable = tables.get(tableIndex);
+                    // We need to start at nearestNonFullIndex so that we cycle back over tables that may still have room
+                    // for people
+                    currentTable = getTableAt(nearestNonFullIndex);
+                }
+                // While this is similar to the above, it will cover both sponsor and non-sponsor tables.
+                else if (currentTable.maxNumberOfChairs == 8 // If currentTable has 8 chairs...
+                        && (currentTable.chairsLeft() + 1 >= tempList.size() ^ currentTable.chairsLeft() >= tempList.size())) { // ...and increasing the number of chairs to 9 would allow the group to sit there...
+                    increaseTableSeatMax(currentTable); // ...increase the number of chairs by 1
+                }
+                while (!tempList.isEmpty()) {
+                    // Load up the current table until it's full (usually about 8 people).
+                    // Remember: 8 % 8 == 0 % 8
+                    int comparator = (tempList.size() % currentTable.maxNumberOfChairs == 0) ?
+                            currentTable.maxNumberOfChairs : tempList.size() % currentTable.maxNumberOfChairs;
+                    if (currentTable.chairsLeft() >= comparator) {
+                        if (tempList.size() >= currentTable.chairsLeft() && currentTable.isEmpty()) {
+                            for (int i = 0; i < currentTable.maxNumberOfChairs; i++) {
+                                currentTable.add(tempList.removeFirst());
+                            }
                         }
-                        currentTable.chairs.add(person); // This is important to capture the current person in the for loop when reaching "else"
+                        else {
+                            currentTable.add(tempList.removeFirst()); // On the first run of the loop, this should be a sponsored Table if possible.
+                        }
+                    }
+                        // Otherwise, start at the nearest, open, regular table and place the rest of the people
+                        // (by looping back to the "if" statement and following the logic).
+                    else {
+                        // Loop through the tables until one that has space is found.
+                        while (getTableAt(nearestNonFullIndex).isFull() && nearestNonFullIndex < furthestNonFullIndex) {
+                            nearestNonFullIndex++;
+                            tableSubsetIndex = nearestNonFullIndex;
+                        }
+                        // This will attempt to select the next table in the subset.
+                        if (tableSubsetIndex < furthestNonFullIndex) {
+                            tableSubsetIndex++; // This could be equal to furthestNonFullIndex at most
+                            currentTable = getTableAt(tableSubsetIndex);
+                        }
+                        else {
+                            furthestNonFullIndex++;
+                            // If furthestNonFullIndex points to a space where no table yet exists,
+                            // (and it probably does), one will be created.
+                            if (furthestNonFullIndex == tables.size()) {
+                                Table table = addTable();
+                                if (tempList.size() == 9) {
+                                    increaseTableSeatMax(table);
+                                }
+                            }
+                            currentTable = getTableAt(furthestNonFullIndex);
+                        }
                     }
                 }
             }
         }
+    }
+
+    private Table getTableAt(int index){
+        return tables.get(index);
     }
 
     private Table getSponsorTable(String sponsor){
@@ -215,7 +256,9 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
      * @param selectedChair The chair in which you'd like to place the Person.
      * @param person The Person you are placing.
      */
-    public void replaceChair(Table selectedTable, Person selectedChair, Person person) {
+
+    // This needs to be able to select an entire organization at a table to swap with another.
+    public void swapChairs(Table selectedTable, Person selectedChair, Person person) {
         int selectedChairIndex = selectedTable.chairs.indexOf(selectedChair);
         if (selectedChair.isFull()) {
             if (!selectedTable.isFull()) {
@@ -235,6 +278,14 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
     @Override
     public Table addTable(){
         Table newTable = new Table();
+        tables.add(newTable);
+        numberOfTables = getNumberOfTables();
+
+        return newTable;
+    }
+
+    public Table addTable(int numberOfChairs){
+        Table newTable = (numberOfChairs >= 9)? new Table(9) : new Table();
         tables.add(newTable);
         numberOfTables = getNumberOfTables();
 
