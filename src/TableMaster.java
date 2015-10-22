@@ -132,21 +132,20 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
         Table currentTable;
 
         while (index < listOfAttendees.size()) {
-            // It's important to initialize the tempList each time the loop is run.
-            // Load up the tempList with people from the same organization.
+            // This first if-block will load up the tempList with people from the same organization.
             // Compare the first element's organization field with each subsequent one (adds first element by default).
             if ((checkIndex != listOfAttendees.size()) && compareOrganizations(listOfAttendees.get(index), listOfAttendees.get(checkIndex))) {
                 // If they match, add the compared person object to the tempList.
                 tempList.add(listOfAttendees.get(checkIndex));
                 // Increment the compared person's index by one.
                 checkIndex++;
-                // This will check if the end of the list has been reached.
-                // Set the index so that the loop terminates.
+                // checkIndex != listOfAttendees.size() will check if the end of the list has been reached.
             }
-            // Once the list has all the people form the same organization, start placing them.
-            // Then clear the list for a fresh start.
+
+            // Once the list has all the people from the same organization, start placing them.
+            // tempList will be cleared as you go, which is why we don't call clear() or something similar.
             else {
-                // If checkIndex == tempList.size(), this will cause the initial loop to terminate
+                // If checkIndex == tempList.size(), this will cause the initial if-loop to terminate
                 // after reaching the end of this block.
                 index = checkIndex; // Start the next tempList load-up where you stopped.
                 // For the Person's in the tempList, see if their organization has a sponsor Table.
@@ -156,13 +155,13 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
                     // We need to add a table if the current index is pointing at a blank space.
                     if (furthestNonFullIndex == tables.size()) {
                         Table table = addTable();
-                        // This will produce the same result as the below if-statement, but it is much easier and quicker
-                        // to perform at this step.
+                        // This will produce the same result as the below if-statement,
+                        // but it is much easier and quicker to perform at this step.
                         if (tempList.size() == 9)
                             increaseTableSeatMax(table);
                     }
-                    // We need to start at nearestNonFullIndex so that we cycle back over tables that may still have room
-                    // for people
+                    // We need to start at nearestNonFullIndex so that we cycle back over tables
+                    // that may still have room for people.
                     currentTable = getTableAt(nearestNonFullIndex);
                 }
                 // While this is similar to the above, it will cover both sponsor and non-sponsor tables.
@@ -170,38 +169,60 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
                         && (currentTable.chairsLeft() + 1 >= tempList.size() ^ currentTable.chairsLeft() >= tempList.size())) { // ...and increasing the number of chairs to 9 would allow the group to sit there...
                     increaseTableSeatMax(currentTable); // ...increase the number of chairs by 1
                 }
+
+                // While there's people still in the tempList...
                 while (!tempList.isEmpty()) {
                     // Load up the current table until it's full (usually about 8 people).
                     // Remember: 8 % 8 == 0 % 8
-                    int comparator = (tempList.size() % currentTable.maxNumberOfChairs == 0) ?
+                    // The following makes sure comparator returns a value between 1-8, or sometimes 1-9
+                    // This is okay, since when the tempList is empty (eg. 0 % 8), the loop will exit
+                    // before reaching this statement.
+                    int comparator = (tempList.size() % currentTable.maxNumberOfChairs == 0)?
                             currentTable.maxNumberOfChairs : tempList.size() % currentTable.maxNumberOfChairs;
+                    // When a table is full, this will return false.
                     if (currentTable.chairsLeft() >= comparator) {
-                        if (tempList.size() >= currentTable.chairsLeft() && currentTable.isEmpty()) {
-                            for (int i = 0; i < currentTable.maxNumberOfChairs; i++) {
-                                currentTable.add(tempList.removeFirst());
+                        // If the current table is empty, and the number of people left to place is greater
+                        // than or equal to the number of chairs left at the table...
+                        if (currentTable.isEmpty() && tempList.size() >= currentTable.maxNumberOfChairs) {
+                            while(!currentTable.isFull()) {
+                                //currentTable.add(tempList.removeFirst());
+                                fillChair(currentTable, tempList.removeFirst());
                             }
                         }
                         else {
-                            currentTable.add(tempList.removeFirst()); // On the first run of the loop, this should be a sponsored Table if possible.
+                            //currentTable.add(tempList.removeFirst());
+                            fillChair(currentTable, tempList.removeFirst());
                         }
                     }
-                        // Otherwise, start at the nearest, open, regular table and place the rest of the people
-                        // (by looping back to the "if" statement and following the logic).
+                        // Otherwise, select the nearest, open, regular table and
+                        // loop back to the placement logic.
                     else {
+                        boolean movedNearestIndex = false;
                         // Loop through the tables until one that has space is found.
                         while (getTableAt(nearestNonFullIndex).isFull() && nearestNonFullIndex < furthestNonFullIndex) {
                             nearestNonFullIndex++;
                             tableSubsetIndex = nearestNonFullIndex;
+                            movedNearestIndex = true;
+                        }
+                        // Select the currently indexed table in the subset.
+                        // This is important to capture the initial table when the
+                        // above while loop runs.
+                        if (movedNearestIndex) {
+                            currentTable = getTableAt(nearestNonFullIndex);
                         }
                         // This will attempt to select the next table in the subset.
-                        if (tableSubsetIndex < furthestNonFullIndex) {
+                        // This could be a table starting at nearestNonFullIndex and up to
+                        // the table at furthestNonFullIndex.
+                        else if (tableSubsetIndex < furthestNonFullIndex) {
                             tableSubsetIndex++; // This could be equal to furthestNonFullIndex at most
                             currentTable = getTableAt(tableSubsetIndex);
                         }
+                        // If we end up here, all the tables in the subset are
+                        // unable to seat anyone currently in the tempList (but not necessarily full).
                         else {
                             furthestNonFullIndex++;
                             // If furthestNonFullIndex points to a space where no table yet exists,
-                            // (and it probably does), one will be created.
+                            // (and it probably does at this point), one will be created.
                             if (furthestNonFullIndex == tables.size()) {
                                 Table table = addTable();
                                 if (tempList.size() == 9) {
@@ -239,12 +260,13 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
     }
 
     @Override
-    public void fillChair (Table selectedTable, Person person) {
+    public boolean fillChair (Table selectedTable, Person person) {
         if (!selectedTable.isFull()) {
             selectedTable.chairs.add(person);
+            return true;
         }
         else {
-            System.out.print("Table is full. Please select another.");
+            return false;
         }
     }
 
