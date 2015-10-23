@@ -7,7 +7,7 @@ public interface TableMasterInterface<Person,Table> {
      * This method can read from a CSV file, or create someone from user input.
      * @return Returns a Person object that can be placed at a Table.
      */
-    void fillChair(Table table, Person person);
+    boolean fillChair(Table table, Person person);
 
     /**
      * Method to add a table.

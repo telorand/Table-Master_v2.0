@@ -18,23 +18,19 @@ public class CSVFileReader {
     private static final String FIRST_NAME = "First Name";
     private static final String LAST_NAME = "Last Name";
     private static final String ORGANIZATION = "Organization";
-    private static final String SEATING_PREFERENCE_AVOID = "Avoid";
-    private static final String SEATING_PREFERENCE_SEEK = "Table Mate";
-
 
     private static class OrganizationCompare implements Comparator<Person> {
         @Override
         public int compare(Person p1, Person p2) {
 
-            /*if (p1.getOrganization().equalsIgnoreCase(p2.getOrganization())) {
+            if (p1.getOrganization().equalsIgnoreCase(p2.getOrganization())) {
                 return 0;
             }
             else if (p1.getOrganization().compareToIgnoreCase(p2.getOrganization()) > 0) {
                 return 1;
             }
             else
-                return -1;*/
-            return p1.getOrganization().compareToIgnoreCase(p2.getOrganization());
+                return -1;
         }
     }
 
@@ -52,7 +48,7 @@ public class CSVFileReader {
 
             for (int i = 1; i < csvRecords.size(); i++){
                 CSVRecord record = csvRecords.get(i);
-                Person person = new Person(record.get(FIRST_NAME), record.get(LAST_NAME), record.get(ORGANIZATION), record.get(SEATING_PREFERENCE_SEEK), record.get(SEATING_PREFERENCE_AVOID));
+                Person person = new Person(record.get(FIRST_NAME), record.get(LAST_NAME), record.get(ORGANIZATION));
                 people.add(person);
             }
             Collections.sort(people, new OrganizationCompare());
