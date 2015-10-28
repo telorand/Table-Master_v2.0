@@ -3,6 +3,7 @@ import org.apache.commons.io.FilenameUtils;
 import java.io.File;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -11,7 +12,7 @@ import java.util.List;
  * Created originally for the Carbondale Chamber of Commerce to assist with event seating.
  * Created by Matthew on 10/5/2015.
  */
-public class TableMaster implements TableMasterInterface<Person,TableMaster.Table> {
+public class TableMaster implements TableMasterInterface<Person,Table>, Iterable<Table> {
     private static final int DEFAULT_TABLE_SEATING = 8;
     private static final int TABLE_BUFFER = 5;
     private File csv = null;
@@ -26,41 +27,7 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
         setNumberOfSponsorTables(numberOfSponsorTables);
         tables = new ArrayList<>(numberOfSponsorTables);
         addTables(this.numberOfSponsorTables);
-    }
-
-    protected class Table{
-        private ArrayList<Person> chairs; //An ArrayList that will contain Person objects. Represents the chairs (or Person's) around the table.
-        private int maxNumberOfChairs; //Defined by the size of the ArrayList. Represents all chairs, open or filled.
-        private String sponsorName; //The name of the sponsor.
-        boolean isSponsor = false;
-
-        Table() {
-            this.chairs = new ArrayList<>(DEFAULT_TABLE_SEATING);
-            this.maxNumberOfChairs = DEFAULT_TABLE_SEATING;
-        }
-        Table(int numberOfChairs){
-            this.chairs = new ArrayList<>(numberOfChairs);
-            this.maxNumberOfChairs = numberOfChairs;
-        }
-
-        protected int getNumberOfFilledChairs(){
-            return this.chairs.size();
-        }
-        protected int chairsLeft() {
-            return maxNumberOfChairs - getNumberOfFilledChairs();
-        }
-        protected String getSponsorName() {
-            return sponsorName;
-        }
-        boolean isFull(){
-            return chairs.size() == maxNumberOfChairs;
-        }
-        protected boolean add(Person person){
-                return chairs.add(person);
-        }
-        protected boolean isEmpty() {
-            return chairs.isEmpty();
-        }
+        // How/When do you add sponsor names to Tables?
     }
 
     public void readCSVFile(File csvFile){
@@ -94,7 +61,7 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
             Table currentTable = tables.get(index);
 
             if (!currentTable.isFull()) {
-                currentTable.chairs.add(person);
+                currentTable.add(person);
 
             } else {
                 index++;
@@ -123,7 +90,7 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
     private void loadParty(List<Person> listOfAttendees) {
         // Keeps starting place when loading up a new tempList.
         int index = 1; // Starts at 1. Element 0 has header junk-info.
-        // A comparator index for comparing with the element at
+        // A comparator index for comparing with the element at the index.
         int checkIndex = 1; // This will be compared with the index.
         int furthestNonFullIndex = this.nonSponsorStartingIndex; // Will automatically search through sponsored Tables, so this should be the starting point.
         int nearestNonFullIndex = furthestNonFullIndex;
@@ -165,7 +132,7 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
                     currentTable = getTableAt(nearestNonFullIndex);
                 }
                 // While this is similar to the above, it will cover both sponsor and non-sponsor tables.
-                else if (currentTable.maxNumberOfChairs == 8 // If currentTable has 8 chairs...
+                else if (currentTable.getMaxNumberOfChairs() == 8 // If currentTable has 8 chairs...
                         && (currentTable.chairsLeft() + 1 >= tempList.size() ^ currentTable.chairsLeft() >= tempList.size())) { // ...and increasing the number of chairs to 9 would allow the group to sit there...
                     increaseTableSeatMax(currentTable); // ...increase the number of chairs by 1
                 }
@@ -177,13 +144,13 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
                     // The following makes sure comparator returns a value between 1-8, or sometimes 1-9
                     // This is okay, since when the tempList is empty (eg. 0 % 8), the loop will exit
                     // before reaching this statement.
-                    int comparator = (tempList.size() % currentTable.maxNumberOfChairs == 0)?
-                            currentTable.maxNumberOfChairs : tempList.size() % currentTable.maxNumberOfChairs;
+                    int comparator = (tempList.size() % currentTable.getMaxNumberOfChairs() == 0)?
+                            currentTable.getMaxNumberOfChairs() : tempList.size() % currentTable.getMaxNumberOfChairs();
                     // When a table is full, this will return false.
                     if (currentTable.chairsLeft() >= comparator) {
                         // If the current table is empty, and the number of people left to place is greater
                         // than or equal to the number of chairs left at the table...
-                        if (currentTable.isEmpty() && tempList.size() >= currentTable.maxNumberOfChairs) {
+                        if (currentTable.isEmpty() && tempList.size() >= currentTable.getMaxNumberOfChairs()) {
                             while(!currentTable.isFull()) {
                                 //currentTable.add(tempList.removeFirst());
                                 fillChair(currentTable, tempList.removeFirst());
@@ -262,7 +229,7 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
     @Override
     public boolean fillChair (Table selectedTable, Person person) {
         if (!selectedTable.isFull()) {
-            selectedTable.chairs.add(person);
+            selectedTable.add(person);
             return true;
         }
         else {
@@ -281,20 +248,25 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
 
     // This needs to be able to select an entire organization at a table to swap with another.
     public void swapChairs(Table selectedTable, Person selectedChair, Person person) {
-        int selectedChairIndex = selectedTable.chairs.indexOf(selectedChair);
+        int selectedChairIndex = selectedTable.getChairIndex(selectedChair);
         if (selectedChair.isFull()) {
             if (!selectedTable.isFull()) {
-                selectedTable.chairs.add(selectedChairIndex, person);
+                selectedTable.add(selectedChairIndex, person);
             }
             else {
-                selectedTable.chairs.add(selectedChairIndex, person);
+                selectedTable.add(selectedChairIndex, person);
                 // The displaced person is removed from the Table and placed at the nearest open Table.
-                autoFillChair(selectedTable.chairs.remove(selectedChairIndex + 1));
+                autoFillChair(selectedTable.remove(selectedChairIndex + 1));
             }
         }
         else {
-            selectedTable.chairs.add(person);
+            selectedTable.add(person);
         }
+    }
+
+    @Override
+    public void swapChairs(Table selectedTable, Person selectedGroup, Table destinationTable){
+
     }
 
     @Override
@@ -307,10 +279,10 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
     }
 
     public Table addTable(int numberOfChairs){
-        Table newTable = (numberOfChairs >= 9)? new Table(9) : new Table();
-        tables.add(newTable);
-        numberOfTables = getNumberOfTables();
-
+        Table newTable = addTable();
+        if (numberOfChairs >= 9){
+            increaseTableSeatMax(newTable);
+        }
         return newTable;
     }
 
@@ -320,8 +292,7 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
      */
     public Table addTable(String sponsorName){
         Table addedTable = addTable();
-        addedTable.isSponsor = true;
-        addedTable.sponsorName = sponsorName;
+        makeSponsorTable(addedTable, sponsorName);
         return addedTable;
     }
 
@@ -369,7 +340,7 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
     @Override
     public void makeSponsorTable(Table selectedTable, String sponsorName) {
         selectedTable.isSponsor = true;
-        selectedTable.sponsorName = sponsorName;
+        selectedTable.setSponsorName(sponsorName);
     }
 
     @Override
@@ -398,18 +369,15 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
         int result = 0;
 
         for (Table table : this.tables) {
-            result += table.maxNumberOfChairs;
+            result += table.getMaxNumberOfChairs();
         }
         return result;
     }
 
     @Override
     public void increaseGlobalTableSeatMax(int numberOfAddedSeats) {
-        if (numberOfAddedSeats >= 0) {
-            for (Table table : this.tables) {
-                table.chairs.ensureCapacity(numberOfAddedSeats + table.maxNumberOfChairs);
-                table.maxNumberOfChairs += numberOfAddedSeats;
-            }
+        for (Table table : this.tables) {
+            increaseTableSeatMax(numberOfAddedSeats, table);
         }
     }
 
@@ -420,8 +388,8 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
     @Override
     public void increaseTableSeatMax(int numberOfAddedSeats, Table table) {
         if (numberOfAddedSeats >= 0) {
-            table.chairs.ensureCapacity(table.maxNumberOfChairs + numberOfAddedSeats);
-            table.maxNumberOfChairs += numberOfAddedSeats;
+            table.ensureCapacity(table.getMaxNumberOfChairs() + numberOfAddedSeats);
+            table.setMaxNumberOfChairs(table.getMaxNumberOfChairs() + numberOfAddedSeats);
         }
     }
 
@@ -432,21 +400,8 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
     @Override
     public boolean decreaseGlobalTableSeatMax(int numberOfRemovedSeats) {
         boolean result = false;
-        if (numberOfRemovedSeats >= 0) {
-            for (Table table : this.tables) {
-                int chairsLeft = table.maxNumberOfChairs - numberOfRemovedSeats;
-                chairsLeft = (chairsLeft < 0)? 0 : chairsLeft;
-                if (chairsLeft > table.chairs.size()) {
-                    table.maxNumberOfChairs = chairsLeft;
-                }
-                else {
-                    for (int j = table.maxNumberOfChairs; j > chairsLeft; j--) {
-                        table.chairs.remove(j - 1); //IndexOutOfBounds error if nothing is there.
-                    }
-                    table.maxNumberOfChairs -= numberOfRemovedSeats;
-                }
-            }
-            result = true;
+        for (Table table : this.tables) {
+            result = decreaseTableSeatMax(numberOfRemovedSeats, table);
         }
         return result;
     }
@@ -459,12 +414,17 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
     public boolean decreaseTableSeatMax(int numberOfRemovedSeats, Table table) {
         boolean result = false;
         if (numberOfRemovedSeats >= 0) {
-            int chairsLeft = table.maxNumberOfChairs - numberOfRemovedSeats;
+            int chairsLeft = table.getMaxNumberOfChairs() - numberOfRemovedSeats;
             chairsLeft = (chairsLeft < 0)? 0 : chairsLeft;
-            for (int j = table.maxNumberOfChairs; j > chairsLeft; j--) {
-                table.chairs.remove(j - 1);
+            if (chairsLeft > table.getNumberOfFilledChairs()) {
+                table.setMaxNumberOfChairs(chairsLeft);
             }
-            table.maxNumberOfChairs = table.getNumberOfFilledChairs();
+            else {
+                for (int j = table.getMaxNumberOfChairs(); j > chairsLeft; j--) {
+                    table.remove(j - 1); //IndexOutOfBounds error if nothing is there.
+                }
+                table.setMaxNumberOfChairs(table.getMaxNumberOfChairs() - numberOfRemovedSeats);
+            }
             result = true;
         }
         return result;
@@ -472,5 +432,10 @@ public class TableMaster implements TableMasterInterface<Person,TableMaster.Tabl
 
     public boolean decreaseTableSeatMax(Table table) {
         return decreaseTableSeatMax(1, table);
+    }
+
+    @Override
+    public Iterator<Table> iterator() {
+        return tables.iterator();
     }
 }

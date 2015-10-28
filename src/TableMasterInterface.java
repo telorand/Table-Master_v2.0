@@ -9,6 +9,8 @@ public interface TableMasterInterface<Person,Table> {
      */
     boolean fillChair(Table table, Person person);
 
+    void swapChairs(Table initialTable, Person person, Table swapToTable);
+
     /**
      * Method to add a table.
      * @return Returns a Table object, so you can immediately operate upon it.

@@ -33,4 +33,9 @@ public class Person {
     boolean isFull(){
         return (firstName != null || lastName != null || organization != null);
     }
+
+    @Override
+    public String toString(){
+        return getPerson();
+    }
 }
