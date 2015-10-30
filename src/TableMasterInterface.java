@@ -1,15 +1,9 @@
 /**
  * Created by Matthew on 10/2/2015.
  */
-public interface TableMasterInterface<Person,Table> {
-    /**
-     * Places a person in a chair.
-     * This method can read from a CSV file, or create someone from user input.
-     * @return Returns a Person object that can be placed at a Table.
-     */
-    boolean fillChair(Table table, Person person);
+public interface TableMasterInterface<Table,Group> {
 
-    void swapChairs(Table initialTable, Person person, Table swapToTable);
+    void swapChairs(Group groupToSwap, Group displacedGroup);
 
     /**
      * Method to add a table.
@@ -23,6 +17,10 @@ public interface TableMasterInterface<Person,Table> {
      * @return Returns the removed Table object, so something can be done with it before full deletion.
      */
     Table removeTable();
+
+    Table removeTable(Table table);
+
+    Table removeTableAt(int index);
 
     /**
      * Designate a table as a sponsor table.

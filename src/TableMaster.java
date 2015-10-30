@@ -1,10 +1,7 @@
 import org.apache.commons.io.FilenameUtils;
 
 import java.io.File;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 
 /**
  * This is a program that allows the user to specify a CSV file that contains names and organizations,
@@ -12,21 +9,23 @@ import java.util.List;
  * Created originally for the Carbondale Chamber of Commerce to assist with event seating.
  * Created by Matthew on 10/5/2015.
  */
-public class TableMaster implements TableMasterInterface<Person,Table>, Iterable<Table> {
+public class TableMaster implements TableMasterInterface<Table,Group>, Iterable<Table> {
     private static final int DEFAULT_TABLE_SEATING = 8;
     private static final int TABLE_BUFFER = 5;
-    private File csv = null;
+    private File csv;
     private ArrayList<Table> tables;
     private int numberOfTables;
     private List<Person> peopleList;
     private int numberOfSponsorTables;
-    private int nonSponsorStartingIndex = numberOfSponsorTables; // Table indices start at 0, so this is correct.
+    private int nonSponsorStartingIndex; // Table indices start at 0, so this is correct.
 
     // We have to read the CSV file after TableMaster instantiation. Otherwise we will get an error.
     TableMaster(int numberOfSponsorTables) {
         setNumberOfSponsorTables(numberOfSponsorTables);
         tables = new ArrayList<>(numberOfSponsorTables);
         addTables(this.numberOfSponsorTables);
+        nonSponsorStartingIndex = numberOfSponsorTables;
+        csv = null;
         // How/When do you add sponsor names to Tables?
     }
 
@@ -40,40 +39,6 @@ public class TableMaster implements TableMasterInterface<Person,Table>, Iterable
         }
     }
 
-    /**
-     * This is an overload of the autoFillChair() method, but will probably be the primary method used.
-     * @param person The Person being seated.
-     */
-    public void autoFillChair(Person person){
-        autoFillChair(null, person);
-    }
-
-    /**
-     * Places a Person in the first available chair.
-     * @param initIndex Initial index value for searching for a Table with open chairs.
-     * @param person The Person being seated.
-     */
-    // Could also catch a NullPointerException to represent all tables being full if it is not used for anything else.
-    public void autoFillChair(Integer initIndex, Person person){
-        Integer index = (initIndex == null)? 0 : initIndex;
-
-        if (index < getNumberOfTables()) {
-            Table currentTable = tables.get(index);
-
-            if (!currentTable.isFull()) {
-                currentTable.add(person);
-
-            } else {
-                index++;
-                autoFillChair(index, person); // Recursive call.
-            }
-        }
-        else {
-            System.out.println("All tables are full! Please add chairs to a table to add anyone else.");
-            //throw new ContainerFullException("All tables are full! Please add chairs to a table to add anyone else.");
-        }
-    }
-
     public void autoFillAllChairs(){
         if (csv != null)
             loadParty(peopleList);
@@ -81,12 +46,10 @@ public class TableMaster implements TableMasterInterface<Person,Table>, Iterable
             System.out.println("You need to first read in a valid CSV file!");
     }
 
-    // Currently has no check for people with seating preferences.
-    // Perhaps it's not imperative to honor seating preference. Check with Ashley.
-    // Searching tables to match a seating preference will incur at worst O(n) -- not ideal.
     // Is there a way to optimize the search for seating preference?
     // What if I reorder the peopleList to (try to) ensure seating preference is honored by moving records around?
     // The loadParty() generates the tempList based upon a queue/deque structure, so the above idea should still work for most cases.
+
     private void loadParty(List<Person> listOfAttendees) {
         // Keeps starting place when loading up a new tempList.
         int index = 1; // Starts at 1. Element 0 has header junk-info.
@@ -97,6 +60,7 @@ public class TableMaster implements TableMasterInterface<Person,Table>, Iterable
         int tableSubsetIndex = nearestNonFullIndex;
         ArrayDeque<Person> tempList = new ArrayDeque<>(24);
         Table currentTable;
+        Group subGroup = null;
 
         while (index < listOfAttendees.size()) {
             // This first if-block will load up the tempList with people from the same organization.
@@ -121,11 +85,7 @@ public class TableMaster implements TableMasterInterface<Person,Table>, Iterable
                 if (currentTable == null) {
                     // We need to add a table if the current index is pointing at a blank space.
                     if (furthestNonFullIndex == tables.size()) {
-                        Table table = addTable();
-                        // This will produce the same result as the below if-statement,
-                        // but it is much easier and quicker to perform at this step.
-                        if (tempList.size() == 9)
-                            increaseTableSeatMax(table);
+                        addTablePlus(tempList);
                     }
                     // We need to start at nearestNonFullIndex so that we cycle back over tables
                     // that may still have room for people.
@@ -139,30 +99,18 @@ public class TableMaster implements TableMasterInterface<Person,Table>, Iterable
 
                 // While there's people still in the tempList...
                 while (!tempList.isEmpty()) {
-                    // Load up the current table until it's full (usually about 8 people).
-                    // Remember: 8 % 8 == 0 % 8
-                    // The following makes sure comparator returns a value between 1-8, or sometimes 1-9
-                    // This is okay, since when the tempList is empty (eg. 0 % 8), the loop will exit
-                    // before reaching this statement.
-                    int comparator = (tempList.size() % currentTable.getMaxNumberOfChairs() == 0)?
-                            currentTable.getMaxNumberOfChairs() : tempList.size() % currentTable.getMaxNumberOfChairs();
-                    // When a table is full, this will return false.
-                    if (currentTable.chairsLeft() >= comparator) {
-                        // If the current table is empty, and the number of people left to place is greater
-                        // than or equal to the number of chairs left at the table...
-                        if (currentTable.isEmpty() && tempList.size() >= currentTable.getMaxNumberOfChairs()) {
-                            while(!currentTable.isFull()) {
-                                //currentTable.add(tempList.removeFirst());
-                                fillChair(currentTable, tempList.removeFirst());
-                            }
-                        }
-                        else {
-                            //currentTable.add(tempList.removeFirst());
-                            fillChair(currentTable, tempList.removeFirst());
-                        }
+                    // On the first run, or when the group has been placed, this will return false.
+                    if (subGroup == null) {
+                        // This will also modify the tempList because of pass-by-reference.
+                        // This is what we want.
+                        subGroup = generateSubGroup(tempList,currentTable);
                     }
-                        // Otherwise, select the nearest, open, regular table and
-                        // loop back to the placement logic.
+                    // When a table is full (or has too few chairs), this will return false.
+                    if (fillChairs(currentTable,subGroup)) {
+                        // Set subGroup = null if it's been placed at a table, so the above logic will run
+                        // to create a new sub-group.
+                        subGroup = null;
+                    }
                     else {
                         boolean movedNearestIndex = false;
                         // Loop through the tables until one that has space is found.
@@ -191,10 +139,7 @@ public class TableMaster implements TableMasterInterface<Person,Table>, Iterable
                             // If furthestNonFullIndex points to a space where no table yet exists,
                             // (and it probably does at this point), one will be created.
                             if (furthestNonFullIndex == tables.size()) {
-                                Table table = addTable();
-                                if (tempList.size() == 9) {
-                                    increaseTableSeatMax(table);
-                                }
+                                addTablePlus(tempList);
                             }
                             currentTable = getTableAt(furthestNonFullIndex);
                         }
@@ -219,54 +164,109 @@ public class TableMaster implements TableMasterInterface<Person,Table>, Iterable
         return nextSponsor;
     }
 
-    private boolean compareSponsors(Table table, Person person) {
-        return table.getSponsorName().equalsIgnoreCase(person.getOrganization());
-    }
     private boolean compareOrganizations(Person person1, Person person2){
         return person1.getOrganization().equalsIgnoreCase(person2.getOrganization());
     }
-
-    @Override
-    public boolean fillChair (Table selectedTable, Person person) {
-        if (!selectedTable.isFull()) {
-            selectedTable.add(person);
-            return true;
+    private void addTablePlus(Collection<Person> list){
+        Table table = addTable();
+        if (list.size() == 9)
+            increaseTableSeatMax(table);
+    }
+    private Group generateSubGroup(ArrayDeque<Person> tempList, Table currentTable){
+        // Remember: 8 % 8 == 0 % 8
+        // The following makes sure comparator returns a value between 1-8, or sometimes 1-9
+        // This is okay, since when the tempList is empty (eg. 0 % 8), the loop will exit
+        // before reaching this statement.
+        Group subGroup;
+        int subGroupSize = (tempList.size() % currentTable.getMaxNumberOfChairs() == 0) ?
+                currentTable.getMaxNumberOfChairs() : tempList.size() % currentTable.getMaxNumberOfChairs();
+        if (tempList.size() >= currentTable.getMaxNumberOfChairs()) {
+            // Since it's best to group people together, this will create the largest sub-group possible
+            // from the tempList of people (usually 8, but occasionally 9).
+            subGroup = new Group(currentTable.getMaxNumberOfChairs(), tempList.getFirst().getOrganization());
+        } else {
+            // This part will run if there's less than 8 (or 9) people in the tempList.
+            subGroup = new Group(subGroupSize, tempList.getFirst().getOrganization());
         }
-        else {
+        // Fill the sub-group with the people on the tempList.
+        // Remember, Group.size() returns the full size of the Group (whether there's objects in it or not)
+        for (int i = 0; i < subGroup.size(); i++) {
+            subGroup.add(tempList.removeFirst());
+        }
+        return subGroup;
+    }
+
+    private boolean fillChairs(Table selectedTable, Group group){
+        // When a table is full, this will return false.
+        if (selectedTable.chairsLeft() >= group.size()) {
+            // If the current table is empty, and the number of people left to place is greater
+            // than or equal to the number of chairs left at the table...
+            group.setHomeTable(selectedTable);
+            return selectedTable.add(group);
+        }
+        else
             return false;
-        }
+        // Otherwise, select the nearest, open, regular table and
+        // loop back to the placement logic.
     }
 
-    /**
-     * This method will replace a person already seated with another.
-     * Displaced people are added to the nearest open Table.
-     * This may be redundant/useless, since placing people together by organization is desirable.
-     * @param selectedTable The table at which you'd like to place a Person.
-     * @param selectedChair The chair in which you'd like to place the Person.
-     * @param person The Person you are placing.
-     */
-
-    // This needs to be able to select an entire organization at a table to swap with another.
-    public void swapChairs(Table selectedTable, Person selectedChair, Person person) {
-        int selectedChairIndex = selectedTable.getChairIndex(selectedChair);
-        if (selectedChair.isFull()) {
-            if (!selectedTable.isFull()) {
-                selectedTable.add(selectedChairIndex, person);
-            }
-            else {
-                selectedTable.add(selectedChairIndex, person);
-                // The displaced person is removed from the Table and placed at the nearest open Table.
-                autoFillChair(selectedTable.remove(selectedChairIndex + 1));
-            }
+    // This could also move people to a table with open chairs.
+    // This could be a move like a group of 4 to a table with a group of 2 and 2 empty chairs,
+    // or two groups of 2.
+    // However, if the initial table doesn't have enough space for the displaced people,
+    // it should return an error.
+    @Override
+    public void swapChairs(Group selectedGroup,Group displacedGroup){
+        // If the destination table already has space for the group you want to move, just stick 'em there.
+        if (displacedGroup.getHomeTable().chairsLeft() >= selectedGroup.size()){
+            fillChairs(displacedGroup.getHomeTable(), selectedGroup);
         }
         else {
-            selectedTable.add(person);
+            switch (selectedGroup.compareTo(displacedGroup)) {
+                // If the selectedGroup is smaller than the displacedGroup...
+                case -1:
+                    if (selectedGroup.getHomeTable().chairsLeft() + selectedGroup.size() < displacedGroup.size()){
+                        // This is an error, since the displacedGroup can't fit at the source table.
+                        System.out.println("There is no room at the source table. Please try again.");
+                    }
+                    else{
+                        performSwap(selectedGroup,displacedGroup);
+                    }
+                    break;
+
+                // If the selectedGroup is the same size as the displacedGroup...
+                case 0:
+                    performSwap(selectedGroup,displacedGroup);
+                    break;
+
+                // If the selectedGroup is larger than the displacedGroup...
+                case 1:
+                    if (displacedGroup.getHomeTable().chairsLeft() + displacedGroup.size() < selectedGroup.size()){
+                        // This is an error, since the source group can't fit at the destination table
+                        // by displacing the selected group.
+                        // Is there a way to select multiple groups at the destination table?
+                        // They'd probably have to load up into a temporary array.
+                        System.out.println("There is no room at the destination table." +
+                                "\nTry selecting a smaller source group," +
+                                "\n a larger group at the destination table," +
+                                "\n or a different group at a different destination table.");
+                    }
+                    else {
+                        performSwap(selectedGroup,displacedGroup);
+                    }
+                    break;
+            }
         }
     }
 
-    @Override
-    public void swapChairs(Table selectedTable, Person selectedGroup, Table destinationTable){
+    private void performSwap(Group selectedGroup, Group displacedGroup){
+        int destIndex = displacedGroup.getHomeTable().getGroupIndex(displacedGroup);
+        Table sourceTable = selectedGroup.getHomeTable();
 
+        displacedGroup.getHomeTable().add(destIndex, selectedGroup);
+        selectedGroup.getHomeTable().add(displacedGroup.getHomeTable().remove(destIndex + 1));
+        selectedGroup.setHomeTable(displacedGroup.getHomeTable());
+        displacedGroup.setHomeTable(sourceTable);
     }
 
     @Override
@@ -311,7 +311,16 @@ public class TableMaster implements TableMasterInterface<Person,Table>, Iterable
 
     @Override
     public Table removeTable(){
-        Table removed = (getNumberOfTables() != 0)? tables.remove(numberOfTables - 1) : null;
+        return removeTableAt(numberOfTables - 1);
+    }
+
+    public Table removeTable(Table selectedTable){
+        return removeTableAt(tables.indexOf(selectedTable));
+    }
+
+    public Table removeTableAt(int index){
+        index = (index > numberOfTables)? numberOfTables : index;
+        Table removed = (getNumberOfTables() != 0)? tables.remove(index) : null;
         numberOfTables = getNumberOfTables();
         return removed;
     }

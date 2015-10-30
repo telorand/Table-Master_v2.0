@@ -4,9 +4,9 @@ import java.util.Iterator;
 /**
  * Created by Matthew on 10/28/2015.
  */
-public class Table implements Iterable<Person>{
+public class Table implements Iterable<Group>{
     private static final int DEFAULT_TABLE_SEATING = 8;
-    private ArrayList<Person> chairs; //An ArrayList that will contain Person objects. Represents the chairs (or Person's) around the table.
+    private ArrayList<Group> chairs; //An ArrayList that will contain Person objects. Represents the chairs (or Person's) around the table.
     private int maxNumberOfChairs; //Defined by the size of the ArrayList. Represents all chairs, open or filled.
     private String sponsorName; //The name of the sponsor.
     boolean isSponsor;
@@ -31,15 +31,20 @@ public class Table implements Iterable<Person>{
         return sponsorName;
     }
     boolean isFull(){
-        return chairs.size() == maxNumberOfChairs;
+        int count = 0;
+
+        for (Group group : chairs){
+            count += group.size();
+        }
+        return count >= maxNumberOfChairs;
     }
-    protected boolean add(Person person){
-        return chairs.add(person);
+    protected boolean add(Group group){
+        return chairs.add(group);
     }
-    protected void add(int position, Person person){
-        chairs.add(position, person);
+    protected void add(int position, Group group){
+        chairs.add(position, group);
     }
-    protected Person remove(int position){
+    protected Group remove(int position) {
         return chairs.remove(position);
     }
     protected boolean isEmpty() {
@@ -58,7 +63,16 @@ public class Table implements Iterable<Person>{
         maxNumberOfChairs = number;
     }
     protected int getChairIndex(Person person){
-        return chairs.indexOf(person);
+        int found = -1;
+        for (Group group : chairs){
+            if (group.getGroup().contains(person)){
+                found = group.getGroup().indexOf(person);
+            }
+        }
+        return found;
+    }
+    protected int getGroupIndex(Group group){
+        return chairs.indexOf(group);
     }
 
     @Override
@@ -67,7 +81,7 @@ public class Table implements Iterable<Person>{
     }
 
     @Override
-    public Iterator<Person> iterator() {
+    public Iterator<Group> iterator() {
         return chairs.iterator();
     }
 }
