@@ -12,7 +12,7 @@ import java.util.List;
  */
 public class CSVFileReader {
     //CSV file header
-    private static final String[] FILE_HEADER_MAPPING = {"First Name", "Last Name", "Organization", "Table Mate", "Avoid"};
+    private static final String[] FILE_HEADER_MAPPING = {"First Name", "Last Name", "Organization"};
 
     //Person attributes
     private static final String FIRST_NAME = "First Name";
