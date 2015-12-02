@@ -1,7 +1,7 @@
 /**
  * Created by Matthew on 10/12/2015.
  */
-public class Person {
+class Person {
     private final String firstName;
     private final String lastName;
     private final String organization;
