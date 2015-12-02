@@ -15,6 +15,7 @@
           </grid>
         </constraints>
         <properties>
+          <text value=""/>
           <toolTipText value="Number of tables that have been sponsored."/>
         </properties>
       </component>

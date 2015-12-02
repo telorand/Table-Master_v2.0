@@ -27,6 +27,15 @@ public class TableMaster implements TableMasterInterface<Table,Group>, Iterable<
         nonSponsorStartingIndex = numberOfSponsorTables;
         csv = null;
         // How/When do you add sponsor names to Tables?
+        // Perhaps at initial creation. The user can specify a comma-separated list, which will be read
+        // in as an array and passed to a modified addTables method.
+    }
+    TableMaster(int numberOfSponsorTables, ArrayDeque<String> sponsorNames){
+        setNumberOfSponsorTables(numberOfSponsorTables);
+        tables = new ArrayList<>(numberOfSponsorTables);
+        addSponsorTables(this.numberOfSponsorTables,sponsorNames);
+        nonSponsorStartingIndex = numberOfSponsorTables;
+        csv = null;
     }
 
     public void readCSVFile(File csvFile){
@@ -305,6 +314,14 @@ public class TableMaster implements TableMasterInterface<Table,Group>, Iterable<
         if(numberOfTables >= 0) {
             for (int i = 0; i < numberOfTables; i++) {
                 addTable();
+            }
+        }
+    }
+
+    public void addSponsorTables(int numberOfSponsorTables, ArrayDeque<String> listOfSponsors){
+        if(numberOfSponsorTables >= 0 && listOfSponsors.size() == numberOfSponsorTables){
+            for (int i = 0; i < numberOfSponsorTables; i++){
+                addTable(listOfSponsors.pop());
             }
         }
     }

@@ -21,13 +21,13 @@ public class Table implements Iterable<Group>{
         sponsorName = "Not Sponsored";
     }
 
-    protected int getNumberOfFilledChairs(){
+    int getNumberOfFilledChairs(){
         return this.chairs.size();
     }
-    protected int chairsLeft() {
+    int chairsLeft() {
         return maxNumberOfChairs - getNumberOfFilledChairs();
     }
-    protected String getSponsorName() {
+    String getSponsorName() {
         return sponsorName;
     }
     boolean isFull(){
@@ -38,31 +38,31 @@ public class Table implements Iterable<Group>{
         }
         return count >= maxNumberOfChairs;
     }
-    protected boolean add(Group group){
+    boolean add(Group group){
         return chairs.add(group);
     }
-    protected void add(int position, Group group){
+    void add(int position, Group group){
         chairs.add(position, group);
     }
-    protected Group remove(int position) {
+    Group remove(int position) {
         return chairs.remove(position);
     }
-    protected boolean isEmpty() {
+    boolean isEmpty() {
         return chairs.isEmpty();
     }
-    protected int getMaxNumberOfChairs(){
+    int getMaxNumberOfChairs(){
         return maxNumberOfChairs;
     }
-    protected void setSponsorName(String sponsorName){
+    void setSponsorName(String sponsorName){
         this.sponsorName = sponsorName;
     }
-    protected void ensureCapacity(int minCapacity){
+    void ensureCapacity(int minCapacity){
         chairs.ensureCapacity(minCapacity);
     }
-    protected void setMaxNumberOfChairs(int number){
+    void setMaxNumberOfChairs(int number){
         maxNumberOfChairs = number;
     }
-    protected int getChairIndex(Person person){
+    int getChairIndex(Person person){
         int found = -1;
         for (Group group : chairs){
             if (group.getGroup().contains(person)){
@@ -71,7 +71,7 @@ public class Table implements Iterable<Group>{
         }
         return found;
     }
-    protected int getGroupIndex(Group group){
+    int getGroupIndex(Group group){
         return chairs.indexOf(group);
     }
 
