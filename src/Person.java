@@ -21,6 +21,9 @@ class Person {
     public String getPerson(){
         return (firstName + " " + lastName + ", " + organization);
     }
+    public String getCSVPerson() {
+        return (firstName + "," + "\"" + lastName + "\",\"" + organization + "\"");
+    }
     public String getFirstName(){
         return firstName;
     }

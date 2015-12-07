@@ -10,6 +10,7 @@ public class Table implements Iterable<Group>{
     private int maxNumberOfChairs; //Defined by the size of the ArrayList. Represents all chairs, open or filled.
     private String sponsorName; //The name of the sponsor.
     boolean isSponsor;
+    private int tableNumber = -1;
 
     Table() {
         this(DEFAULT_TABLE_SEATING);
@@ -21,8 +22,13 @@ public class Table implements Iterable<Group>{
         sponsorName = "Not Sponsored";
     }
 
+    // FIXME: 12/6/2015 Fix chairsLeft algorithm. It looks to be based upon number of Groups instead of number of Persons in the group.
     int getNumberOfFilledChairs(){
-        return this.chairs.size();
+        int number = 0;
+        for (Group group : this){
+            number += group.size();
+        }
+        return number;
     }
     int chairsLeft() {
         return maxNumberOfChairs - getNumberOfFilledChairs();
@@ -73,6 +79,14 @@ public class Table implements Iterable<Group>{
     }
     int getGroupIndex(Group group){
         return chairs.indexOf(group);
+    }
+
+    public int getTableNumber() {
+        return tableNumber;
+    }
+
+    public void setTableNumber(int tableNumber) {
+        this.tableNumber = tableNumber;
     }
 
     @Override
