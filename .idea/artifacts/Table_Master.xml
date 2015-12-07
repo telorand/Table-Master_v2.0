@@ -1,0 +1,15 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="Table Master">
+    <output-path>$PROJECT_DIR$/out/artifacts/Table_Master</output-path>
+    <root id="archive" name="Table Master.jar">
+      <element id="module-output" name="Table Master v2" />
+      <element id="extracted-dir" path="$USER_HOME$/Documents/Programs/processing-3.0.1-windows64/processing-3.0.1/core/library/core.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/lib/jgoodies-common-1.8.1.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/lib/jgoodies-forms-1.9.0.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$MAVEN_REPOSITORY$/org/apache/commons/commons-csv/1.2/commons-csv-1.2.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$MAVEN_REPOSITORY$/org/apache/directory/studio/org.apache.commons.io/2.4/org.apache.commons.io-2.4.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$MAVEN_REPOSITORY$/commons-io/commons-io/2.4/commons-io-2.4.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$MAVEN_REPOSITORY$/findbugs/annotations/1.0.0/annotations-1.0.0.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>

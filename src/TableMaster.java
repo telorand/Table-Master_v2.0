@@ -1,5 +1,6 @@
 import org.apache.commons.io.FilenameUtils;
 
+import javax.swing.*;
 import java.io.File;
 import java.util.*;
 
@@ -21,10 +22,6 @@ public class TableMaster implements TableMasterInterface<Table,Group>, Iterable<
 
     // We have to read the CSV file after TableMaster instantiation. Otherwise we will get an error.
     TableMaster() {
-       /* setNumberOfSponsorTables(numberOfInitialTables);
-        tables = new ArrayList<>(numberOfInitialTables);
-        addTables(this.numberOfSponsorTables);
-        nonSponsorStartingIndex = numberOfInitialTables;*/
         tables = new ArrayList<>();
         nonSponsorStartingIndex = 0;
         numberOfSponsorTables = 0;
@@ -55,8 +52,6 @@ public class TableMaster implements TableMasterInterface<Table,Group>, Iterable<
             System.out.println("You need to first read in a valid CSV file!");
     }
 
-    // Is there a way to optimize the search for seating preference?
-    // What if I reorder the peopleList to (try to) ensure seating preference is honored by moving records around?
     // The loadParty() generates the tempList based upon a queue/deque structure, so the above idea should still work for most cases.
 
     private void loadParty(List<Person> listOfAttendees) {
@@ -472,5 +467,19 @@ public class TableMaster implements TableMasterInterface<Table,Group>, Iterable<
     @Override
     public Iterator<Table> iterator() {
         return tables.iterator();
+    }
+
+    public static void main(String[] args) {
+        try {
+            // Set System L&F
+            UIManager.setLookAndFeel(
+                    UIManager.getSystemLookAndFeelClassName());
+        }
+        catch (ClassNotFoundException | InstantiationException
+                | IllegalAccessException | UnsupportedLookAndFeelException e) {
+            e.printStackTrace();
+        }
+
+        TableMasterGUI newGui = new TableMasterGUI();
     }
 }

@@ -1,5 +1,4 @@
 import com.jgoodies.forms.layout.FormLayout;
-import javafx.stage.FileChooser;
 import org.apache.commons.io.FilenameUtils;
 
 import javax.swing.*;
@@ -12,7 +11,6 @@ import java.io.File;
 import java.io.IOException;
 import java.text.NumberFormat;
 import java.util.*;
-import java.util.List;
 
 /**
  * Created by Matthew on 10/19/2015.
@@ -38,6 +36,8 @@ public class TableMasterGUI extends JFrame {
         setContentPane(tmPanel);
         pack();
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        setLocationByPlatform(true);
+        setResizable(false);
         setVisible(true);
 
         NumberFormat nf = NumberFormat.getIntegerInstance(); // Specify specific format here.
@@ -49,40 +49,42 @@ public class TableMasterGUI extends JFrame {
         fc = new JFileChooser();
         fc.setFileFilter(csvFilter);
 
-        //changeLaf(this);
-
         goButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                if (NumberOfSponsors.getText().isEmpty())
+                    numberOfSponsors = 0;
+                else
+                    numberOfSponsors = Integer.parseInt(NumberOfSponsors.getText());
+
                 if (CSVPath.getText().isEmpty() || (SponsorNames.getText().isEmpty()
-                        ^ NumberOfSponsors.getText().isEmpty())) {
-                    JOptionPane.showMessageDialog(tmPanel, "Please enter all fields.");
+                        ^ numberOfSponsors == 0)) {
                     if (CSVPath.getText().isEmpty()) {
-                        CSVPath.grabFocus();
-                        //CSVPath.setCaretPosition(0);
-                    }
-                    if (SponsorNames.getText().isEmpty() && NumberOfSponsors.getText().length() != 0) {
-                        SponsorNames.grabFocus();
-                        //SponsorNames.setCaretPosition(0);
-                    }
-                    if (NumberOfSponsors.getText().isEmpty() && SponsorNames.getText().length() != 0) {
-                        NumberOfSponsors.grabFocus();
+                        JOptionPane.showMessageDialog(tmPanel, "Please enter a path to a valid CSV file.");
+                        CSVPath.requestFocus();
+                    } else if (SponsorNames.getText().isEmpty() && numberOfSponsors > 0) {
+                        JOptionPane.showMessageDialog(tmPanel, "Please enter sponsor names.");
+                        SponsorNames.requestFocus();
+                    } else if (numberOfSponsors == 0 && SponsorNames.getText().length() != 0) {
+                        JOptionPane.showMessageDialog(tmPanel, "Please enter the number of sponsors.");
+                        NumberOfSponsors.requestFocus();
                     }
                 } else {
-                    if (NumberOfSponsors.getText().isEmpty())
-                        numberOfSponsors = 0;
-                    else
-                        numberOfSponsors = Integer.parseInt(NumberOfSponsors.getText());
                     csvPath = new File(CSVPath.getText());
                     int sponsorLength;
                     String[] s = SponsorNames.getText().split("\\s*,\\s*");
+
                     if (SponsorNames.getText().isEmpty()) {
                         sponsorLength = 0;
                     } else {
                         sponsorLength = s.length;
                     }
+
                     if (numberOfSponsors != sponsorLength) {
-                        JOptionPane.showMessageDialog(fc, "Number of sponsors don't match. Please try again.");
+                        JOptionPane.showMessageDialog(tmPanel, "Number of sponsors don't match. Please try again.");
+                    } else if (!FilenameUtils.getExtension(csvPath.getPath()).equalsIgnoreCase("csv")) {
+                        JOptionPane.showMessageDialog(tmPanel, "Invalid CSV file specified.");
+                        CSVPath.requestFocus();
                     } else {
                         if (numberOfSponsors == 0) {
                             tableMaster = new TableMaster();
@@ -100,15 +102,12 @@ public class TableMasterGUI extends JFrame {
                         if (returnVal == JFileChooser.APPROVE_OPTION) {
                             try {
                                 CSVFileWriter.writeCSVFile(fc.getSelectedFile().getAbsolutePath(), tableMaster);
-                                JOptionPane.showMessageDialog(null, "Success!");
-                                System.exit(1);
+                                JOptionPane.showMessageDialog(tmPanel, "Success!");
                             } catch (IOException z) {
-                                JOptionPane.showMessageDialog(fc, "Error." +
+                                JOptionPane.showMessageDialog(tmPanel, "Error." +
                                         "\nCannot access file because it is being used by another process." +
                                         "\nPlease try again.");
                             }
-                        } else {
-                            JOptionPane.showMessageDialog(fc, "Invalid filename. Please try again.");
                         }
                     }
                 }
@@ -130,11 +129,45 @@ public class TableMasterGUI extends JFrame {
             }
         });
 
-
         cancelButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 System.exit(0);
+            }
+        });
+        CSVPath.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusGained(FocusEvent e) {
+                super.focusGained(e);
+                CSVPath.selectAll();
+            }
+        });
+        NumberOfSponsors.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusGained(FocusEvent e) {
+                //super.focusGained(e);
+                SwingUtilities.invokeLater(new Runnable() {
+                    @Override
+                    public void run() {
+                        NumberOfSponsors.selectAll();
+                    }
+                });
+            }
+        });
+        SponsorNames.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusGained(FocusEvent e) {
+                super.focusGained(e);
+                SponsorNames.selectAll();
+            }
+        });
+        NumberOfSponsors.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusLost(FocusEvent e) {
+                super.focusLost(e);
+                if (NumberOfSponsors.getText().equals("")) {
+                    NumberOfSponsors.setValue(0);
+                }
             }
         });
     }
@@ -157,7 +190,7 @@ public class TableMasterGUI extends JFrame {
         tmPanel = new JPanel();
         tmPanel.setLayout(new com.intellij.uiDesigner.core.GridLayoutManager(8, 5, new Insets(10, 10, 10, 10), -1, -1));
         NumberOfSponsors = new JFormattedTextField();
-        NumberOfSponsors.setText("");
+        NumberOfSponsors.setText("0");
         NumberOfSponsors.setToolTipText("Number of tables that have been sponsored.");
         tmPanel.add(NumberOfSponsors, new com.intellij.uiDesigner.core.GridConstraints(2, 1, 1, 1, com.intellij.uiDesigner.core.GridConstraints.ANCHOR_WEST, com.intellij.uiDesigner.core.GridConstraints.FILL_NONE, com.intellij.uiDesigner.core.GridConstraints.SIZEPOLICY_FIXED, com.intellij.uiDesigner.core.GridConstraints.SIZEPOLICY_FIXED, null, new Dimension(30, 20), null, 0, false));
         final com.intellij.uiDesigner.core.Spacer spacer1 = new com.intellij.uiDesigner.core.Spacer();
@@ -170,6 +203,7 @@ public class TableMasterGUI extends JFrame {
         CSVSelector.setHorizontalTextPosition(11);
         CSVSelector.setMargin(new Insets(2, 2, 2, 2));
         CSVSelector.setText("...");
+        CSVSelector.setToolTipText("Browse files...");
         tmPanel.add(CSVSelector, new com.intellij.uiDesigner.core.GridConstraints(1, 4, 1, 1, com.intellij.uiDesigner.core.GridConstraints.ANCHOR_CENTER, com.intellij.uiDesigner.core.GridConstraints.FILL_NONE, com.intellij.uiDesigner.core.GridConstraints.SIZEPOLICY_FIXED, com.intellij.uiDesigner.core.GridConstraints.SIZEPOLICY_FIXED, null, new Dimension(30, -1), null, 0, false));
         final JLabel label1 = new JLabel();
         label1.setText("CSV File");
