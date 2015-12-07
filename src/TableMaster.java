@@ -20,15 +20,15 @@ public class TableMaster implements TableMasterInterface<Table,Group>, Iterable<
     private int nonSponsorStartingIndex; // Table indices start at 0, so this is correct.
 
     // We have to read the CSV file after TableMaster instantiation. Otherwise we will get an error.
-    TableMaster(int numberOfSponsorTables) {
-        setNumberOfSponsorTables(numberOfSponsorTables);
-        tables = new ArrayList<>(numberOfSponsorTables);
+    TableMaster() {
+       /* setNumberOfSponsorTables(numberOfInitialTables);
+        tables = new ArrayList<>(numberOfInitialTables);
         addTables(this.numberOfSponsorTables);
-        nonSponsorStartingIndex = numberOfSponsorTables;
+        nonSponsorStartingIndex = numberOfInitialTables;*/
+        tables = new ArrayList<>();
+        nonSponsorStartingIndex = 0;
+        numberOfSponsorTables = 0;
         csv = null;
-        // How/When do you add sponsor names to Tables?
-        // Perhaps at initial creation. The user can specify a comma-separated list, which will be read
-        // in as an array and passed to a modified addTables method.
     }
     TableMaster(int numberOfSponsorTables, ArrayDeque<String> sponsorNames){
         setNumberOfSponsorTables(numberOfSponsorTables);
@@ -61,9 +61,9 @@ public class TableMaster implements TableMasterInterface<Table,Group>, Iterable<
 
     private void loadParty(List<Person> listOfAttendees) {
         // Keeps starting place when loading up a new tempList.
-        int index = 1; // Starts at 1. Element 0 has header junk-info.
+        int index = 0; // Starts at 1. Element 0 has header junk-info.
         // A comparator index for comparing with the element at the index.
-        int checkIndex = 1; // This will be compared with the index.
+        int checkIndex = 0; // This will be compared with the index.
         int furthestNonFullIndex = this.nonSponsorStartingIndex; // Will automatically search through sponsored Tables, so this should be the starting point.
         int nearestNonFullIndex = furthestNonFullIndex;
         int tableSubsetIndex = nearestNonFullIndex;
@@ -93,7 +93,8 @@ public class TableMaster implements TableMasterInterface<Table,Group>, Iterable<
                 // If currentTable is null (not affiliated with a sponsor), get the next available, non-sponsor table.
                 if (currentTable == null) {
                     // We need to add a table if the current index is pointing at a blank space.
-                    if (furthestNonFullIndex == tables.size()) {
+                    if (nearestNonFullIndex == tables.size()) {
+                        furthestNonFullIndex++;
                         addTablePlus(tempList);
                     }
                     // We need to start at nearestNonFullIndex so that we cycle back over tables
@@ -107,7 +108,7 @@ public class TableMaster implements TableMasterInterface<Table,Group>, Iterable<
                 }
 
                 // While there's people still in the tempList...
-                while (!tempList.isEmpty()) {
+                while (!tempList.isEmpty() || subGroup != null) {
                     // On the first run, or when the group has been placed, this will return false.
                     if (subGroup == null) {
                         // This will also modify the tempList because of pass-by-reference.
@@ -139,7 +140,11 @@ public class TableMaster implements TableMasterInterface<Table,Group>, Iterable<
                         // the table at furthestNonFullIndex.
                         else if (tableSubsetIndex < furthestNonFullIndex) {
                             tableSubsetIndex++; // This could be equal to furthestNonFullIndex at most
+                            if (tableSubsetIndex == furthestNonFullIndex){
+                                addTablePlus(subGroup);
+                            }
                             currentTable = getTableAt(tableSubsetIndex);
+
                         }
                         // If we end up here, all the tables in the subset are
                         // unable to seat anyone currently in the tempList (but not necessarily full).
@@ -148,7 +153,7 @@ public class TableMaster implements TableMasterInterface<Table,Group>, Iterable<
                             // If furthestNonFullIndex points to a space where no table yet exists,
                             // (and it probably does at this point), one will be created.
                             if (furthestNonFullIndex == tables.size()) {
-                                addTablePlus(tempList);
+                                addTablePlus(subGroup);
                             }
                             currentTable = getTableAt(furthestNonFullIndex);
                         }
@@ -163,14 +168,12 @@ public class TableMaster implements TableMasterInterface<Table,Group>, Iterable<
     }
 
     private Table getSponsorTable(String sponsor){
-        Table nextSponsor = null;
         for (int i = 0; i < numberOfSponsorTables; i++){
-            nextSponsor = tables.get(i);
-            if (nextSponsor.getSponsorName().equalsIgnoreCase(sponsor)){
-                return nextSponsor;
+            if (tables.get(i).getSponsorName().equalsIgnoreCase(sponsor)){
+                return tables.get(i);
             }
         }
-        return nextSponsor;
+        return null;
     }
 
     private boolean compareOrganizations(Person person1, Person person2){
@@ -179,6 +182,11 @@ public class TableMaster implements TableMasterInterface<Table,Group>, Iterable<
     private void addTablePlus(Collection<Person> list){
         Table table = addTable();
         if (list.size() == 9)
+            increaseTableSeatMax(table);
+    }
+    private void addTablePlus(Group group){
+        Table table = addTable();
+        if (group.size() == 9)
             increaseTableSeatMax(table);
     }
     private Group generateSubGroup(ArrayDeque<Person> tempList, Table currentTable){
@@ -283,6 +291,7 @@ public class TableMaster implements TableMasterInterface<Table,Group>, Iterable<
         Table newTable = new Table();
         tables.add(newTable);
         numberOfTables = getNumberOfTables();
+        newTable.setTableNumber(numberOfTables);
 
         return newTable;
     }
